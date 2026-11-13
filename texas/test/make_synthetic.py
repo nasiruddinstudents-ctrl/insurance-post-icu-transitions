@@ -50,6 +50,7 @@ def quarter(y, q, n):
               "K7031", "B20", "I10", "J9601", "A419"]
     for i, c in enumerate(C.DX_COLS[:8]):
         d[c] = np.where(rng.random(n) < 0.35, rng.choice(dxpool, n), "")
+        d[C.POA_COLS[i]] = np.where(d[c] != "", rng.choice(["Y", "Y", "Y", "N", "W", "1", "U"], n), "")
     lin = (-3.0 + 0.8 * medicaid + 0.5 * (sev.astype(int) - 2) + 0.4 * vent
            + np.vectorize(hosp_effect.get)(hosp))
     p_fac = 1 / (1 + np.exp(-lin))
@@ -68,7 +69,7 @@ def quarter(y, q, n):
     b2 = pd.DataFrame({c: "" for c in C.BASE2_COLUMNS}, index=range(n))
     b2["RECORD_ID"] = rid
     b2["ICU_AMOUNT"] = np.where(icu, (rng.random(n) * 20000).round(2).astype(str), "0")
-    b2["CCU_AMOUNT"] = "0"
+    b2["CCU_AMOUNT"] = np.where(~icu & (rng.random(n) < 0.05), "5000", "0")
     fac = pd.DataFrame({c: "" for c in C.FACILITY_COLUMNS}, index=range(len(H)))
     fac["THCIC_ID"] = H
     fac["FAC_ACUTE_CARE_IND"] = ["X"] * (len(H) - 3) + ["", "", "X"]

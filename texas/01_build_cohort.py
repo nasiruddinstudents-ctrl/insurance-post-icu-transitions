@@ -125,12 +125,27 @@ def derive(df, icu_ids, ccu_ids=frozenset()):
         hit = long.str.match(rx)
         return hit.groupby(level=0).any().reindex(out.index, fill_value=False)
 
-    flags = {k: any_match(rx) for k, rx in C.CHARLSON_RE.items()}
-    f = pd.DataFrame(flags)
-    f.loc[f["sev_liver"], "mild_liver"] = False
-    f.loc[f["dm_comp"], "dm"] = False
-    f.loc[f["mets"], "cancer"] = False
-    out["cci"] = sum(f[k].astype(int) * w for k, w in C.CHARLSON_W.items())
+    def cci_from(match):
+        f = pd.DataFrame({k: match(rx) for k, rx in C.CHARLSON_RE.items()})
+        f.loc[f["sev_liver"], "mild_liver"] = False
+        f.loc[f["dm_comp"], "dm"] = False
+        f.loc[f["mets"], "cancer"] = False
+        return sum(f[k].astype(int) * w for k, w in C.CHARLSON_W.items())
+
+    out["cci"] = cci_from(any_match)
+
+    # Charlson from diagnoses flagged present on admission only (POA = Y, W, or 1 = exempt)
+    poa = d[C.POA_COLS].apply(lambda s: s.fillna("").str.strip().str.upper())
+    poa.columns = C.DX_COLS
+    poa_long = poa.stack().reindex(long.index).fillna("")
+    long_poa = long[poa_long.isin(C.POA_YES)]
+    out["poa_reported"] = (poa.isin(["Y", "N", "U", "W", "1"])).any(axis=1)
+
+    def any_match_poa(rx):
+        hit = long_poa.str.match(rx)
+        return hit.groupby(level=0).any().reindex(out.index, fill_value=False)
+
+    out["cci_poa"] = cci_from(any_match_poa)
     out["housing_econ_icd"] = any_match(C.RE_HOUSING)
     out["sud_icd"] = any_match(C.RE_SUD)
     out["smi_icd"] = any_match(C.RE_SMI)
@@ -203,11 +218,12 @@ if FACS:
                  "FAC_SNF_IND", "FAC_OTHER_LTC_IND"]
     fac_all["specialty_ind"] = (fac_all[spec_cols].apply(lambda s: s.str.strip() != "")).any(axis=1)
     fac_all["ltch_ind"] = fac_all["FAC_LONG_TERM_AC_IND"].str.strip() != ""
+    fac_all["fac_psych"] = fac_all["FAC_PSYCH_IND"].str.strip() != ""
     cohort = cohort.merge(fac_all[["hosp", "file_q", "teaching", "acute_ind", "specialty_ind",
-                                   "ltch_ind", "CERT_STATUS"]], on=["hosp", "file_q"], how="left")
+                                   "ltch_ind", "fac_psych", "CERT_STATUS"]], on=["hosp", "file_q"], how="left")
 else:
     log("WARNING: no Facility Type Indicator files found; hospital-type exclusions skipped.")
-    for c in ["teaching", "acute_ind", "specialty_ind", "ltch_ind"]:
+    for c in ["teaching", "acute_ind", "specialty_ind", "ltch_ind", "fac_psych"]:
         cohort[c] = np.nan
     cohort["CERT_STATUS"] = ""
 
