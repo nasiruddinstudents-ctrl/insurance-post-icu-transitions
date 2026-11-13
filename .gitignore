@@ -1,0 +1,12 @@
+# never commit data or outputs
+*.pkl
+*.parquet
+*.csv
+*.xlsx
+*.zip
+tx_output/
+tx_data/
+*_output/
+__pycache__/
+.ipynb_checkpoints/
+.DS_Store
