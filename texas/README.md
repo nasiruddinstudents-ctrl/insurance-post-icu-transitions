@@ -42,7 +42,9 @@ Tip: type `cd ` and then drag the folder from Finder into Terminal to paste its 
 | 1. Check files | `python 00_discover.py "/path/to/Texas PUDF folder"` | seconds | yes, the whole output |
 | 2. Build cohort | `python 01_build_cohort.py "/path/to/Texas PUDF folder" 2017 2020` | 15–40 min | only `tx_output/tx_build_log.txt` |
 | 3. Analysis | `python 02_analysis.py` | a few minutes | `tx_results_summary.txt`, `tx_results.xlsx` |
-| 4. Final CIs | `python 02_analysis.py --boot 200` | 1–3 hours | same two files |
+| 4. Bootstrap check | `python 02_analysis.py --boot 100` | about half of a 200-replicate run (1–3 hours) | same two files |
+| 5. Sequential models and diagnostics | `python 03_revision.py` | varies | `tx_output/tx_revision.xlsx` |
+| 6. Fixed-effects logistic and Poisson models, calibration, sub-cohorts | `python 04_bounded.py` | varies | `tx_output/tx_bounded.xlsx` |
 
 Zipped downloads can be left zipped; the scripts read inside the zip files. Include 2021 Q1 if you have it, because late 2020 discharges can appear in the next quarter's file.
 
@@ -75,9 +77,11 @@ Zipped downloads can be left zipped; the scripts read inside the zip files. Incl
   - ventilation: any invasive ventilation, and ventilation of 96 hours or more;
   - fixed effects: discharge quarter.
 
-## Model
+## Models
 
-The model is a linear probability model with hospital fixed effects for each destination, plus the same model for length of stay in days and in logs. Standard errors are clustered by hospital.
+- **Primary destination estimates (`04_bounded.py`):** logistic regression with a fixed effect for every hospital, standardized to the analytic sample (marginal standardization), with delta-method CIs from a hospital-clustered variance. Poisson models with hospital fixed effects give conditional risk ratios.
+- **Length of stay and sensitivity analyses (`02_analysis.py`, `03_revision.py`):** linear models with hospital and quarter fixed effects; standard errors clustered by hospital.
+- **Covariate sets:** M0 (admission-time) through M4 (adds social-needs codes), added in temporal order; M0 is the primary comparison.
 
 The Medicaid coefficient is the adjusted difference from private insurance within the same hospital, in percentage points.
 
